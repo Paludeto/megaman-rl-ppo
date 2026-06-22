@@ -1,0 +1,20 @@
+# --- ROM (NÃO redistribuir; cada usuário fornece o seu) ---
+*.nes
+custom_integrations/MegaMan-v1-Nes/rom.nes
+
+# --- saídas de treino/avaliação ---
+logs/
+checkpoints/
+models/
+*.zip
+*.bk2
+*.mp4
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# --- diversos ---
+.DS_Store
+.ipynb_checkpoints/
