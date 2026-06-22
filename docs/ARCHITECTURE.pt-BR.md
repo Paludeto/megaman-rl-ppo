@@ -4,7 +4,7 @@
 
 Este documento explica como o projeto é construído, o que cada classe faz e como as peças se
 encaixam. Foi escrito para alguém que **nunca viu o código** e não se assume nenhum conhecimento
-avançado de aprendizado por reforço (RL). Leia de cima para baixo e você conseguirá se virar no
+avançado de aprendizado por reforço (RL). Leia de cima para baixo e você conseguirá navegar pelo
 código com confiança.
 
 > Resumo — Uma rede neural aprende a jogar as lutas de chefe de *Mega Man* (NES) olhando para a tela
@@ -106,7 +106,7 @@ montado), depois `src/train.py` (como ele é treinado), depois `src/eval_win.py`
 ## 4. O ambiente, wrapper por wrapper
 
 Um "wrapper" é uma classe que envolve outro ambiente, interceptando `reset()` e `step()` para
-adicionar comportamento. Eles formam uma cebola: cada um chama o que está dentro dele. A ordem
+adicionar comportamento. Eles operam em camadas aninhadas: cada wrapper delega para o que está dentro dele. A ordem
 importa. Do mais interno (mais perto do emulador) ao mais externo (mais perto do agente), como
 montado em `make_env`:
 
@@ -188,7 +188,7 @@ coordenada Y do olho do Yellow Devil (endereço de RAM `1537`), lida diretamente
 
 **Potential-Based Reward Shaping (PBRS), `align_bonus`** — usado só no Yellow Devil. O chefe só fica
 vulnerável por ~1 quadro quando o olho abre, e um tiro aleatório praticamente nunca acerta, então o
-agente nunca recebe uma primeira recompensa para aprender (a "parede de bootstrap"). O PBRS adiciona
+agente nunca recebe uma primeira recompensa para aprender (o desafio inicial de exploração). O PBRS adiciona
 um gradiente denso de "leve seu tiro até a altura do olho":
 
 ```
@@ -197,11 +197,11 @@ shaping  = gamma · phi(s') − phi(s)
 ```
 
 A propriedade-chave (Ng et al., 1999) é que essa forma de shaping é **invariante à política ótima**:
-ela guia a exploração sem mudar qual política é ótima, então o agente não consegue "farmar" o sinal
+ela guia a exploração sem mudar qual política é ótima, então o agente não consegue explorar a recompensa artificialmente
 flutuando perto do olho sem matar o chefe. `phi` é forçado a 0 quando o chefe morre (valor terminal
 correto).
 
-**Botões de currículo opcionais** (presentes na classe, todos *desligados* na receita padrão,
+**Parâmetros opcionais de currículo** (presentes na classe, todos *desligados* na receita padrão,
 mantidos para experimentação): `unlimited_ammo`, `invincible`, `bonus_hp`, `survival_bonus`,
 `waste_penalty`, `aim_bonus`, `ammo_budget`, `fire_from_action`, `post_kill_frames`. Foram usados no
 desenvolvimento da receita (ex.: pré-treinar a mira com munição infinita) e estão documentados nos
@@ -211,9 +211,9 @@ comentários do código.
 `x`, `y`, `screen`, `weapon_energy`, `eye_state`) em um só lugar, usado de forma idêntica por `reset`
 e `step`.
 
-> Detalhe sutil mas importante tratado no `reset`: o `info` do stable-retro costuma vir **vazio** logo
-> após um reset. Confiar em um default errado (ex.: `lives = 9` quando o save tem 8) faria o primeiro
-> passo parecer "perdeu uma vida" e encerrar o episódio com um passo só. Por isso o `reset` lê os
+> Detalhe sutil mas importante tratado no `reset`: o dicionário `info` do stable-retro geralmente retorna **vazio** logo
+> após um reset. Depender de um padrão incorreto (ex.: `lives = 9` quando o save tem 8) registraria incorretamente a
+> perda de uma vida e encerraria o episódio prematuramente. Portanto, o `reset` lê os
 > valores **reais** direto da RAM via `lookup_value`.
 
 ### 4.5 `WarpFrame`
@@ -335,7 +335,7 @@ flawless `n_hits·d`.
 
 ## 8. A definição do jogo — `custom_integrations/MegaMan-v1-Nes/`
 
-O stable-retro não conhece *Mega Man* por padrão; nós fornecemos uma **integração customizada**: uma
+O stable-retro não possui suporte nativo ao *Mega Man*; nós fornecemos uma **integração customizada**: uma
 pasta que descreve como ler e controlar o jogo. Ela contém:
 
 - **`rom.nes`** — o jogo de fato (um ROM de NES). **Não incluído** por questões legais; você fornece o
@@ -393,7 +393,7 @@ receita compartilhada.
   temporal suficiente; uma política recorrente e os vários currículos se mostraram desnecessários. O
   que importou foi uma recompensa bem modelada (PBRS no Yellow Devil) e episódios longos o bastante.
 - **Uma receita genérica.** Os mesmos hiperparâmetros e recompensa derrotam os sete chefes; o endereço
-  do HP do chefe (1729) é genérico, então adaptar para um chefe novo é basicamente escolher
+  do HP do chefe (1729) é genérico, então adaptar para um chefe novo requer principalmente definir
   `n_hits = ceil(28 / dano_por_tiro)`.
 - **Reprodutibilidade.** Uma seed fixa (666), constantes em vez de flags para a receita e um ambiente
   fixado (`environment.yml` / `requirements.txt`) tornam as execuções repetíveis a menos da

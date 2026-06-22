@@ -4,10 +4,10 @@
 
 This document explains how the project is built, what every class does, and how the pieces fit
 together. It is written for someone who has **never seen the codebase** and is not assumed to be
-an expert in reinforcement learning (RL). Read it top to bottom and you should be able to find your
-way around the code with confidence.
+an expert in reinforcement learning (RL). Read it top to bottom to navigate the codebase
+with confidence.
 
-> TL;DR — A neural network learns to play *Mega Man* (NES) boss fights by looking at the screen
+> Summary — A neural network learns to play *Mega Man* (NES) boss fights by looking at the screen
 > (just the pixels) and pressing buttons. The game runs inside an emulator; a stack of small
 > "wrapper" classes turns raw game frames into the network's input and turns game-memory readings
 > into a numeric reward. The PPO algorithm uses that reward to gradually improve the network.
@@ -105,7 +105,7 @@ assembled), then `src/train.py` (how it is trained), then `src/eval_win.py`.
 ## 4. The environment, wrapper by wrapper
 
 A "wrapper" is a class that wraps another environment, intercepting `reset()` and `step()` to add
-behavior. They form an onion: each one calls the one inside it. The order matters. From innermost
+behavior. They operate in nested layers: each wrapper delegates to the one inside it. The order matters. From innermost
 (closest to the emulator) to outermost (closest to the agent), as assembled in `make_env`:
 
 ```
@@ -185,7 +185,7 @@ eye Y-coordinate (RAM address `1537`) read directly for the aiming term.
 
 **Potential-Based Reward Shaping (PBRS), `align_bonus`** — used only for the Yellow Devil. The boss
 is only vulnerable for ~1 frame when its eye opens, and a random shot essentially never lands, so
-the agent never gets a first reward to learn from (the "bootstrap wall"). PBRS adds a dense
+the agent never gets a first reward to learn from (the initial exploration challenge). PBRS adds a dense
 "get your shot to the eye's height" gradient:
 
 ```
@@ -194,10 +194,10 @@ shaping  = gamma · phi(s') − phi(s)
 ```
 
 The key property (Ng et al., 1999) is that this form of shaping is **policy-invariant**: it guides
-exploration without changing which policy is optimal, so the agent cannot "farm" it by hovering near
+exploration without changing which policy is optimal, so the agent cannot artificially exploit the reward by hovering near
 the eye without killing the boss. `phi` is forced to 0 once the boss dies (correct terminal value).
 
-**Optional curriculum knobs** (present in the class, all *off* in the standard recipe, kept for
+**Optional curriculum parameters** (present in the class, all *off* in the standard recipe, kept for
 experimentation): `unlimited_ammo`, `invincible`, `bonus_hp`, `survival_bonus`, `waste_penalty`,
 `aim_bonus`, `ammo_budget`, `fire_from_action`, `post_kill_frames`. They were used while developing
 the recipe (e.g. to pre-train aiming with infinite ammo) and are documented inline in the code.
@@ -205,9 +205,9 @@ the recipe (e.g. to pre-train aiming with infinite ammo) and are documented inli
 **Helper:** `_info_dict(...)` builds the per-step `info` dictionary (`hp`, `boss_hp`, `lives`, `x`,
 `y`, `screen`, `weapon_energy`, `eye_state`) in one place, used identically by `reset` and `step`.
 
-> Subtle but important detail handled in `reset`: stable-retro's `info` is often **empty** right
-> after a reset. Trusting a wrong default (e.g. `lives = 9` when the save has 8) would make the very
-> first step look like "a life was lost" and end the episode after one step. So `reset` reads the
+> Subtle but important detail handled in `reset`: stable-retro's `info` dictionary is often **empty** right
+> after a reset. Relying on an incorrect default (e.g., `lives = 9` when the save has 8) would incorrectly register
+> a life lost and terminate the episode prematurely. Therefore, `reset` reads the
 > **real** values straight from RAM via `lookup_value`.
 
 ### 4.5 `WarpFrame`
@@ -328,7 +328,7 @@ flawless ceiling `n_hits·d`.
 
 ## 8. The game definition — `custom_integrations/MegaMan-v1-Nes/`
 
-stable-retro does not know about *Mega Man* out of the box; we provide a **custom integration**: a
+stable-retro does not natively support *Mega Man* by default; we provide a **custom integration**: a
 folder describing how to read and drive the game. It contains:
 
 - **`rom.nes`** — the actual game (a NES ROM). **Not included** for legal reasons; you supply your
@@ -386,7 +386,7 @@ threshold), and — for the Yellow Devil only — the `--align-bonus 0.10` and a
   context; a recurrent policy and the various curricula turned out to be unnecessary. What mattered
   was a well-shaped reward (PBRS for the Yellow Devil) and long enough episodes.
 - **One generic recipe.** The same hyperparameters and reward beat all seven bosses; the boss HP
-  address (1729) is generic, so adapting to a new boss is mostly choosing `n_hits = ceil(28 /
+  address (1729) is generic, so adapting to a new boss primarily requires setting `n_hits = ceil(28 /
   damage_per_shot)`.
 - **Reproducibility.** A fixed seed (666), constants instead of flags for the recipe, and a pinned
   environment (`environment.yml` / `requirements.txt`) make runs repeatable up to emulator/policy
