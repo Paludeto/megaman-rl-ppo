@@ -1,5 +1,7 @@
 # Architecture Guide
 
+*Read this in another language: **English** · [Português](ARCHITECTURE.pt-BR.md)*
+
 This document explains how the project is built, what every class does, and how the pieces fit
 together. It is written for someone who has **never seen the codebase** and is not assumed to be
 an expert in reinforcement learning (RL). Read it top to bottom and you should be able to find your

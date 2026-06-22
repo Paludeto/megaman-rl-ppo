@@ -1,0 +1,68 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 700" font-family="Segoe UI, Helvetica, Arial, sans-serif">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#555"/>
+    </marker>
+  </defs>
+
+  <rect x="0" y="0" width="880" height="700" fill="#ffffff"/>
+
+  <!-- ===================== Agente (PPO) ===================== -->
+  <rect x="220" y="38" width="440" height="58" rx="9" fill="#ece3fb" stroke="#7e57c2" stroke-width="1.6"/>
+  <text x="440" y="62" text-anchor="middle" font-size="15.5" font-weight="700" fill="#3f2a63">Agente — PPO (CnnPolicy)</text>
+  <text x="440" y="82" text-anchor="middle" font-size="11.5" fill="#5a4a78">rollouts → GAE → atualização de política (clip) · logs no TensorBoard</text>
+
+  <!-- ===================== Camada vetorizada ===================== -->
+  <rect x="220" y="122" width="440" height="72" rx="9" fill="#d9f0df" stroke="#43a047" stroke-width="1.6"/>
+  <text x="440" y="146" text-anchor="middle" font-size="15" font-weight="700" fill="#1f5a2a">Camada vetorizada — N ambientes paralelos</text>
+  <text x="440" y="166" text-anchor="middle" font-size="11.5" fill="#2f6f3a">SubprocVecEnv / DummyVecEnv · VecFrameStack ×4</text>
+  <text x="440" y="182" text-anchor="middle" font-size="11.5" fill="#2f6f3a">VecTransposeImage · VecMonitor · VecNormalize(recompensa)</text>
+
+  <!-- ===================== Grupo: um ambiente ===================== -->
+  <rect x="196" y="212" width="488" height="356" rx="12" fill="#f4f9fd" stroke="#b8d6ea" stroke-width="1.4" stroke-dasharray="5 4"/>
+  <text x="214" y="232" font-size="12.5" font-weight="700" fill="#2a6f9e">um ambiente — pilha de wrappers do make_env()</text>
+
+  <!-- RenderModeWrapper -->
+  <rect x="232" y="242" width="416" height="40" rx="8" fill="#d8ebf7" stroke="#1f78b4" stroke-width="1.4"/>
+  <text x="440" y="259" text-anchor="middle" font-size="13.5" font-weight="600" fill="#10465f">RenderModeWrapper</text>
+  <text x="440" y="274" text-anchor="middle" font-size="11" fill="#3a6a85">expõe um render_mode público consistente</text>
+
+  <!-- WarpFrame -->
+  <rect x="232" y="290" width="416" height="40" rx="8" fill="#d8ebf7" stroke="#1f78b4" stroke-width="1.4"/>
+  <text x="440" y="307" text-anchor="middle" font-size="13.5" font-weight="600" fill="#10465f">WarpFrame</text>
+  <text x="440" y="322" text-anchor="middle" font-size="11" fill="#3a6a85">quadro RGB → 84×84 em tons de cinza</text>
+
+  <!-- BossWrapper (destaque) -->
+  <rect x="232" y="338" width="416" height="52" rx="8" fill="#ffe2b8" stroke="#ef8a00" stroke-width="2"/>
+  <text x="440" y="358" text-anchor="middle" font-size="14" font-weight="700" fill="#8a4b00">BossWrapper　★ motor de recompensa e regras</text>
+  <text x="440" y="376" text-anchor="middle" font-size="11" fill="#8a5a1a">lê a RAM → recompensa + vitória/derrota (currículos opcionais)</text>
+
+  <!-- TimeLimit -->
+  <rect x="232" y="398" width="416" height="40" rx="8" fill="#d8ebf7" stroke="#1f78b4" stroke-width="1.4"/>
+  <text x="440" y="415" text-anchor="middle" font-size="13.5" font-weight="600" fill="#10465f">TimeLimit</text>
+  <text x="440" y="430" text-anchor="middle" font-size="11" fill="#3a6a85">limita a duração do episódio</text>
+
+  <!-- FrameskipWrapper -->
+  <rect x="232" y="446" width="416" height="40" rx="8" fill="#d8ebf7" stroke="#1f78b4" stroke-width="1.4"/>
+  <text x="440" y="463" text-anchor="middle" font-size="13.5" font-weight="600" fill="#10465f">FrameskipWrapper</text>
+  <text x="440" y="478" text-anchor="middle" font-size="11" fill="#3a6a85">repete a ação ×4 + pula frames de piscada invisível</text>
+
+  <!-- ActionSkipWrapper -->
+  <rect x="232" y="494" width="416" height="40" rx="8" fill="#d8ebf7" stroke="#1f78b4" stroke-width="1.4"/>
+  <text x="440" y="511" text-anchor="middle" font-size="13.5" font-weight="600" fill="#10465f">ActionSkipWrapper</text>
+  <text x="440" y="526" text-anchor="middle" font-size="11" fill="#3a6a85">alterna o B para "segurar B" continuar atirando</text>
+
+  <!-- ===================== Emulador ===================== -->
+  <rect x="220" y="586" width="440" height="58" rx="9" fill="#f7d9c4" stroke="#d2691e" stroke-width="1.6"/>
+  <text x="440" y="610" text-anchor="middle" font-size="15" font-weight="700" fill="#7a3b08">Emulador — stable-retro (NES + ROM)</text>
+  <text x="440" y="630" text-anchor="middle" font-size="11.5" fill="#8a5128">produz quadros RGB · consome botões</text>
+
+  <!-- ===================== Setas de fluxo ===================== -->
+  <!-- ação: topo → base (esquerda) -->
+  <line x1="150" y1="100" x2="150" y2="582" stroke="#555" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="138" y="345" text-anchor="middle" font-size="12.5" font-weight="600" fill="#444" transform="rotate(-90 138 345)">ação (botões)  ↓</text>
+
+  <!-- observação + recompensa: base → topo (direita) -->
+  <line x1="730" y1="582" x2="730" y2="100" stroke="#555" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="742" y="345" text-anchor="middle" font-size="12.5" font-weight="600" fill="#444" transform="rotate(90 742 345)">observação (84×84×4) + recompensa  ↑</text>
+</svg>
