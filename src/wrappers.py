@@ -432,31 +432,3 @@ class WarpFrame(gym.ObservationWrapper):
         gray = cv2.cvtColor(obs, cv2.COLOR_RGB2GRAY)
         resized = cv2.resize(gray, (self.width, self.height), interpolation=cv2.INTER_AREA)
         return np.expand_dims(resized, axis=-1)
-
-
-class RenderModeWrapper(gym.Wrapper):
-    """
-    Wrapper to override the public render_mode property of the environment,
-    allowing VecEnv to pass consistency checks even when different internal
-    render modes are used for different processes.
-    """
-    def __init__(self, env, render_mode):
-        """
-        Initializes the render mode override wrapper.
-
-        Parameters:
-            env (gym.Env): The underlying Gym environment.
-            render_mode (str or None): The public render mode value to expose.
-        """
-        super().__init__(env)
-        self._render_mode = render_mode
-
-    @property
-    def render_mode(self):
-        """
-        Returns the overridden public render_mode.
-
-        Returns:
-            str or None: The overridden render mode.
-        """
-        return self._render_mode

@@ -12,9 +12,9 @@ from stable_baselines3.common.vec_env import SubprocVecEnv, VecFrameStack, VecTr
 from stable_baselines3.common.vec_env.vec_monitor import VecMonitor
 
 try:
-    from src.wrappers import ActionSkipWrapper, FrameskipWrapper, BossWrapper, WarpFrame, RenderModeWrapper
+    from src.wrappers import ActionSkipWrapper, FrameskipWrapper, BossWrapper, WarpFrame
 except ImportError:
-    from wrappers import ActionSkipWrapper, FrameskipWrapper, BossWrapper, WarpFrame, RenderModeWrapper
+    from wrappers import ActionSkipWrapper, FrameskipWrapper, BossWrapper, WarpFrame
 
 # Custom integrations directory (at the project root). Registered ONCE per process: SubprocVecEnv
 # re-imports this module in every worker, so each process registers its own.
@@ -31,7 +31,7 @@ def _register_custom_integrations():
         _integrations_registered = True
 
 
-def make_env(game="MegaMan-v1-Nes", state="YellowDevil-boss", render_mode=None, record=False, actual_render_mode=None, d=0.05, unlimited_ammo=False, win_bonus=0.0, invincible=False, bonus_hp=0, damage_penalty_mult=1.0, frameskip=4, survival_bonus=0.0, waste_penalty=0.0, aim_bonus=0.0, post_kill_frames=0, ammo_budget=0, fire_from_action=False, align_bonus=0.0, max_episode_frames=7200):
+def make_env(game="MegaMan-v1-Nes", state="YellowDevil-boss", render_mode=None, record=False, d=0.05, unlimited_ammo=False, win_bonus=0.0, invincible=False, bonus_hp=0, damage_penalty_mult=1.0, frameskip=4, survival_bonus=0.0, waste_penalty=0.0, aim_bonus=0.0, post_kill_frames=0, ammo_budget=0, fire_from_action=False, align_bonus=0.0, max_episode_frames=7200):
     """
     Creates a single instance of the Mega Man retro environment wrapped with the custom
     RL preprocessing steps.
@@ -39,9 +39,8 @@ def make_env(game="MegaMan-v1-Nes", state="YellowDevil-boss", render_mode=None, 
     Parameters:
         game (str): Name of the game in stable-retro integrations.
         state (str): Name of the initial save state to load on reset.
-        render_mode (str or None): The public render mode for Gymnasium (e.g. 'human', 'rgb_array').
+        render_mode (str or None): The render mode for the emulator (e.g. 'human', 'rgb_array').
         record (str or bool): The folder directory path to save .bk2 recordings of the gameplay.
-        actual_render_mode (str or None): The actual emulator render mode used internally.
         d (float): Flat reward scale passed to BossWrapper for hits/damage.
 
     Returns:
@@ -49,16 +48,13 @@ def make_env(game="MegaMan-v1-Nes", state="YellowDevil-boss", render_mode=None, 
     """
     _register_custom_integrations()
 
-    if actual_render_mode is None:
-        actual_render_mode = render_mode
-
     env = stable_retro.make(
         game=game,
         state=state,
         inttype=stable_retro.data.Integrations.CUSTOM_ONLY,
         use_restricted_actions=stable_retro.Actions.MULTI_DISCRETE,
         obs_type=stable_retro.Observations.IMAGE,
-        render_mode=actual_render_mode,
+        render_mode=render_mode,
         record=record,
     )
 
@@ -69,9 +65,6 @@ def make_env(game="MegaMan-v1-Nes", state="YellowDevil-boss", render_mode=None, 
     env = TimeLimit(env, max_episode_steps=max_episode_frames // frameskip)
     env = BossWrapper(env, d=d, unlimited_ammo=unlimited_ammo, win_bonus=win_bonus, invincible=invincible, bonus_hp=bonus_hp, damage_penalty_mult=damage_penalty_mult, survival_bonus=survival_bonus, waste_penalty=waste_penalty, aim_bonus=aim_bonus, post_kill_frames=post_kill_frames, ammo_budget=ammo_budget, fire_from_action=fire_from_action, align_bonus=align_bonus)
     env = WarpFrame(env)
-
-    # Override the public render_mode so the VecEnv consistency check passes
-    env = RenderModeWrapper(env, render_mode)
     return env
 
 
@@ -105,11 +98,10 @@ def make_venv(n_envs=8, game="MegaMan-v1-Nes", state="YellowDevil-boss", render_
     )
 
     def make_thunk(rank):
-        # If render_mode is "human", only rank 0 actually renders the emulator (avoids opening
-        # multiple windows); every env still exposes render_mode publicly (VecEnv validation).
-        actual_render_mode = render_mode if (rank == 0 or render_mode != "human") else None
+        # render_mode is uniform across envs (required by the VecEnv consistency check); only rank 0
+        # writes a .bk2 recording. Use render_mode="human" with n_envs=1 to watch a single window.
         return lambda: make_env(render_mode=render_mode, record=(record if rank == 0 else False),
-                                actual_render_mode=actual_render_mode, **env_kwargs)
+                                **env_kwargs)
 
     if n_envs > 1 or force_subproc:
         venv = SubprocVecEnv([make_thunk(i) for i in range(n_envs)])

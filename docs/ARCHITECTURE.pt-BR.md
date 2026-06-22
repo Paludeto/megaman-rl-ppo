@@ -116,8 +116,7 @@ stable_retro.make(...)        # ambiente NES cru: imagem RGB entra, botões saem
        └─ FrameskipWrapper     # age a cada 4 quadros; também pula os quadros de "piscada"
             └─ TimeLimit        # encerra o episódio após um número fixo de quadros
                  └─ BossWrapper  # calcula a recompensa e as condições de vitória/derrota
-                      └─ WarpFrame      # converte a imagem para 84×84 em tons de cinza
-                           └─ RenderModeWrapper  # cosmético: expõe um render_mode público
+                      └─ WarpFrame  # converte a imagem para 84×84 em tons de cinza (mais externo)
 ```
 
 ### 4.1 `ActionSkipWrapper`
@@ -221,14 +220,8 @@ e `step`.
 
 Converte cada quadro RGB para tons de cinza e redimensiona para 84×84 (`cv2.cvtColor` + `cv2.resize`
 com `INTER_AREA`). É o pré-processamento padrão estilo Atari: cor é desnecessária e uma imagem menor
-é muito mais barata para a CNN. Formato de saída: `(84, 84, 1)`.
-
-### 4.6 `RenderModeWrapper`
-
-Um pequeno wrapper cosmético. Ao rodar muitos ambientes em paralelo, só um deve realmente abrir uma
-janela do emulador, mas a infraestrutura de ambientes vetorizados verifica se todos reportam o
-*mesmo* `render_mode` público. Este wrapper sobrescreve a propriedade pública `render_mode` para que
-essa verificação passe.
+é muito mais barata para a CNN. Formato de saída: `(84, 84, 1)`. É o wrapper **mais externo**, então
+sua saída é exatamente o que a camada vetorizada (próxima seção) empilha e entrega à política.
 
 ---
 
@@ -286,17 +279,16 @@ Retorna uma função que o PPO chama com `progress_remaining` indo de 1.0 (iníc
 produzindo um learning rate que decai linearmente até 0. Um LR decrescente ajuda a política a afinar
 depois de já ter se estabilizado.
 
-### 6.3 `CustomEvalCallback` (subclasse do `EvalCallback` do SB3)
+### 6.3 Callback de avaliação (`EvalCallback`)
 
-A cada `eval_freq` passos ele roda a política atual em um **ambiente de avaliação separado** (a tarefa
-*real* — sem reward shaping, `damage_penalty_mult = 1.0`, sem win bonus) e:
-- registra `eval/mean_reward` e `eval/mean_ep_length` no TensorBoard com 6 casas decimais;
+A cada `eval_freq` passos o `EvalCallback` de fábrica do SB3 roda a política atual em um **ambiente de
+avaliação separado** (a tarefa *real* — sem reward shaping, `damage_penalty_mult = 1.0`, sem win
+bonus) e:
+- registra `eval/mean_reward` e `eval/mean_ep_length` no TensorBoard;
 - salva `best_model.zip` sempre que a recompensa média melhora;
 - repassa o controle a um callback `StopTrainingOnRewardThreshold` (veja o early-stop abaixo).
 
-A única razão de essa subclasse existir (em vez do `EvalCallback` padrão) é o log de maior precisão —
-as recompensas são minúsculas (múltiplos de `d = 0.05`), então a formatação padrão esconderia o
-progresso.
+O callback de fábrica já faz tudo isso, então nenhuma subclasse é necessária.
 
 ### 6.4 `main()` — o procedimento de treino
 
@@ -310,7 +302,7 @@ progresso.
 4. Cria os callbacks:
    - `CheckpointCallback` — salva um checkpoint a cada ~500k passos;
    - `StopTrainingOnRewardThreshold` — o gatilho de early-stop;
-   - `CustomEvalCallback` — roda a avaliação a cada ~100k passos, salva o melhor modelo.
+   - `EvalCallback` — roda a avaliação a cada ~100k passos, salva o melhor modelo.
 5. Cria o modelo PPO com `CnnPolicy` e as constantes da receita, ou retoma de um checkpoint se
    `--checkpoint` for dado.
 6. Chama `model.learn(...)`. O PPO repetidamente: coleta um rollout de experiência dos N ambientes
@@ -416,13 +408,11 @@ receita compartilhada.
 | `ActionSkipWrapper` | `wrappers.py` | Alterna o botão B para que "segurar B" continue atirando. |
 | `FrameskipWrapper` | `wrappers.py` | Age a cada 4 quadros; pula os quadros de piscada invisível. |
 | `BossWrapper` | `wrappers.py` | Lê a RAM → calcula recompensa e vitória/derrota; currículos opcionais. |
-| `WarpFrame` | `wrappers.py` | Quadro RGB → 84×84 em tons de cinza. |
-| `RenderModeWrapper` | `wrappers.py` | Expõe um `render_mode` público consistente para o VecEnv. |
+| `WarpFrame` | `wrappers.py` | Quadro RGB → 84×84 em tons de cinza (wrapper mais externo). |
 | `_register_custom_integrations` | `env.py` | Registra o jogo customizado no stable-retro (uma vez por processo). |
 | `make_env` | `env.py` | Constrói um ambiente envolvido pelos wrappers. |
 | `make_venv` | `env.py` | Constrói N ambientes paralelos + frame stacking, transpose, monitor, normalize. |
 | `linear_schedule` | `train.py` | Função de decaimento do learning rate. |
-| `CustomEvalCallback` | `train.py` | Avaliação periódica na tarefa real; salva o melhor modelo. |
-| `main` (train) | `train.py` | Monta tudo e roda o laço de treino do PPO. |
+| `main` (train) | `train.py` | Monta tudo; usa o `EvalCallback` do SB3 e roda o laço de treino do PPO. |
 | `run_episode` | `eval_win.py` | Joga um episódio; reporta vitória + métricas. |
 | `main` (eval) | `eval_win.py` | Carrega um modelo e reporta a taxa de vitória em N episódios. |

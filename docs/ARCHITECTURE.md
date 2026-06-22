@@ -114,8 +114,7 @@ stable_retro.make(...)        # raw NES env: RGB image in, button presses out
        └─ FrameskipWrapper     # acts every 4 frames; also skips "blink" frames
             └─ TimeLimit        # ends the episode after a fixed number of frames
                  └─ BossWrapper  # computes the reward and win/lose conditions
-                      └─ WarpFrame      # converts the image to 84×84 grayscale
-                           └─ RenderModeWrapper  # cosmetic: exposes a public render mode
+                      └─ WarpFrame  # converts the image to 84×84 grayscale (outermost)
 ```
 
 ### 4.1 `ActionSkipWrapper`
@@ -215,13 +214,8 @@ the recipe (e.g. to pre-train aiming with infinite ammo) and are documented inli
 
 Converts each RGB frame to grayscale and resizes it to 84×84 (`cv2.cvtColor` + `cv2.resize` with
 `INTER_AREA`). This is the standard Atari-style preprocessing: color is unnecessary, and a smaller
-image is much cheaper for the CNN. Output shape: `(84, 84, 1)`.
-
-### 4.6 `RenderModeWrapper`
-
-A small cosmetic wrapper. When running many parallel environments, only one should actually open an
-emulator window, but the vectorized-env machinery checks that all environments report the *same*
-public `render_mode`. This wrapper overrides the public `render_mode` property so that check passes.
+image is much cheaper for the CNN. Output shape: `(84, 84, 1)`. This is the **outermost** wrapper,
+so its output is exactly what the vectorized layer (next section) stacks and feeds to the policy.
 
 ---
 
@@ -279,16 +273,16 @@ Returns a function that PPO calls with `progress_remaining` going from 1.0 (star
 producing a learning rate that decays linearly to 0. A decaying LR helps the policy fine-tune after
 it has roughly stabilized.
 
-### 6.3 `CustomEvalCallback` (subclass of SB3's `EvalCallback`)
+### 6.3 Evaluation callback (`EvalCallback`)
 
-Every `eval_freq` steps it runs the current policy on a **separate evaluation environment** (the
-*real* task — no reward shaping, `damage_penalty_mult = 1.0`, no win bonus) and:
-- logs `eval/mean_reward` and `eval/mean_ep_length` to TensorBoard with 6-decimal precision;
+Every `eval_freq` steps SB3's stock `EvalCallback` runs the current policy on a **separate
+evaluation environment** (the *real* task — no reward shaping, `damage_penalty_mult = 1.0`, no win
+bonus) and:
+- logs `eval/mean_reward` and `eval/mean_ep_length` to TensorBoard;
 - saves `best_model.zip` whenever the mean reward improves;
 - forwards control to a `StopTrainingOnRewardThreshold` callback (see early-stop below).
 
-The only reason this subclass exists (instead of the stock `EvalCallback`) is the higher-precision
-logging — the rewards are tiny (multiples of `d = 0.05`) so the default formatting hides progress.
+The stock callback already does all of this, so no custom subclass is needed.
 
 ### 6.4 `main()` — the training procedure
 
@@ -302,7 +296,7 @@ logging — the rewards are tiny (multiples of `d = 0.05`) so the default format
 4. Create the callbacks:
    - `CheckpointCallback` — saves a checkpoint every ~500k steps;
    - `StopTrainingOnRewardThreshold` — the early-stop trigger;
-   - `CustomEvalCallback` — runs eval every ~100k steps, saves the best model.
+   - `EvalCallback` — runs eval every ~100k steps, saves the best model.
 5. Create the PPO model with `CnnPolicy` and the recipe constants, or resume from a checkpoint if
    `--checkpoint` is given.
 6. Call `model.learn(...)`. PPO repeatedly: collects a rollout of experience from the N parallel
@@ -407,13 +401,11 @@ threshold), and — for the Yellow Devil only — the `--align-bonus 0.10` and a
 | `ActionSkipWrapper` | `wrappers.py` | Toggles the B button so "hold B" still fires repeatedly. |
 | `FrameskipWrapper` | `wrappers.py` | Acts every 4 frames; skips invisible blink frames. |
 | `BossWrapper` | `wrappers.py` | Reads RAM → computes reward and win/lose; optional curricula. |
-| `WarpFrame` | `wrappers.py` | RGB frame → 84×84 grayscale. |
-| `RenderModeWrapper` | `wrappers.py` | Exposes a consistent public `render_mode` for VecEnv. |
+| `WarpFrame` | `wrappers.py` | RGB frame → 84×84 grayscale (outermost wrapper). |
 | `_register_custom_integrations` | `env.py` | Registers the custom game with stable-retro (once per process). |
 | `make_env` | `env.py` | Builds one wrapped environment. |
 | `make_venv` | `env.py` | Builds N parallel envs + frame stacking, transpose, monitor, normalize. |
 | `linear_schedule` | `train.py` | Learning-rate decay function. |
-| `CustomEvalCallback` | `train.py` | Periodic evaluation on the real task; saves the best model. |
-| `main` (train) | `train.py` | Assembles everything and runs the PPO training loop. |
+| `main` (train) | `train.py` | Assembles everything; uses SB3's `EvalCallback` and runs the PPO training loop. |
 | `run_episode` | `eval_win.py` | Plays one episode; reports win + metrics. |
 | `main` (eval) | `eval_win.py` | Loads a model and reports win rate over N episodes. |
